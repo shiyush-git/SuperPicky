@@ -356,10 +356,7 @@ class ExifToolManager:
 
     def batch_reset_metadata(self, file_paths: List[str], batch_size: int = 50, log_callback=None, i18n=None) -> Dict[str, int]:
         """
-        批量重置元数据（使用ExifTool条件过滤，最快速度）
-
-        使用 -if 参数自动过滤，只重置 Rating ≤ 3 的照片
-        注意：保留 4-5 星照片
+        批量重置元数据（强制清除所有EXIF评分字段）
 
         Args:
             file_paths: 文件路径列表
@@ -368,7 +365,7 @@ class ExifToolManager:
             i18n: I18n instance for internationalization (optional)
 
         Returns:
-            统计结果 {'success': 成功数, 'failed': 失败数, 'skipped': 跳过数}
+            统计结果 {'success': 成功数, 'failed': 失败数}
         """
         def log(msg):
             """统一日志输出"""
@@ -377,17 +374,14 @@ class ExifToolManager:
             else:
                 print(msg)
 
-        stats = {'success': 0, 'failed': 0, 'skipped': 0}
+        stats = {'success': 0, 'failed': 0}
         total = len(file_paths)
 
         if i18n:
             log(i18n.t("logs.batch_reset_start", total=total))
-            log(i18n.t("logs.batch_reset_filter"))
-            log(i18n.t("logs.batch_reset_note") + "\n")
         else:
             log(f"📦 开始重置 {total} 个文件的EXIF元数据...")
-            log(f"   使用ExifTool条件过滤（-if参数）")
-            log(f"   注意：自动保留 4-5 星照片，只重置 ≤3 星的照片\n")
+            log(f"   强制清除所有评分字段\n")
 
         # 分批处理（避免命令行参数过长）
         for batch_start in range(0, total, batch_size):
@@ -401,10 +395,9 @@ class ExifToolManager:
             if not valid_files:
                 continue
 
-            # 构建ExifTool命令（使用-if条件过滤）
+            # 构建ExifTool命令（移除-if条件，强制重置）
             cmd = [
                 self.exiftool_path,
-                '-if', 'not defined $Rating or $Rating <= 3',  # 先检查未定义，再检查≤3星（修复短路问题）
                 '-Rating=',
                 '-XMP:Pick=',
                 '-XMP:Label=',
@@ -423,25 +416,12 @@ class ExifToolManager:
                 )
 
                 if result.returncode == 0:
-                    # 解析ExifTool输出，获取实际处理的文件数
-                    # 格式："18 image files updated"
-                    import re
-                    match = re.search(r'(\d+) image files? updated', result.stdout)
-                    if match:
-                        updated_count = int(match.group(1))
-                        stats['success'] += updated_count
-                        stats['skipped'] += len(valid_files) - updated_count  # 4-5星被自动跳过
-                        if i18n:
-                            log(i18n.t("logs.batch_progress", start=batch_start+1, end=batch_end, success=updated_count, skipped=len(valid_files) - updated_count))
-                        else:
-                            log(f"  ✅ 批次 {batch_start+1}-{batch_end}: {updated_count} 成功, {len(valid_files) - updated_count} 跳过(4-5星)")
+                    # 所有文件都被处理
+                    stats['success'] += len(valid_files)
+                    if i18n:
+                        log(i18n.t("logs.batch_progress", start=batch_start+1, end=batch_end, success=len(valid_files)))
                     else:
-                        # 如果没有匹配到输出，假设全部成功
-                        stats['success'] += len(valid_files)
-                        if i18n:
-                            log(i18n.t("logs.batch_progress", start=batch_start+1, end=batch_end, success=len(valid_files), skipped=0))
-                        else:
-                            log(f"  ✅ 批次 {batch_start+1}-{batch_end}: {len(valid_files)} 个文件已处理")
+                        log(f"  ✅ 批次 {batch_start+1}-{batch_end}: {len(valid_files)} 个文件已处理")
                 else:
                     stats['failed'] += len(valid_files)
                     if i18n:
@@ -463,9 +443,9 @@ class ExifToolManager:
                     log(f"  ❌ 批次 {batch_start+1}-{batch_end} 错误: {e}")
 
         if i18n:
-            log(f"\n{i18n.t('logs.batch_complete', success=stats['success'], skipped=stats['skipped'], failed=stats['failed'])}")
+            log(f"\n{i18n.t('logs.batch_complete', success=stats['success'], failed=stats['failed'])}")
         else:
-            log(f"\n✅ 批量重置完成: {stats['success']} 成功, {stats['skipped']} 跳过(4-5星), {stats['failed']} 失败")
+            log(f"\n✅ 批量重置完成: {stats['success']} 成功, {stats['failed']} 失败")
         return stats
 
     def restore_files_from_manifest(self, dir_path: str, log_callback=None) -> Dict[str, int]:
