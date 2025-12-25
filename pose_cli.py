@@ -59,6 +59,44 @@ def create_parser() -> argparse.ArgumentParser:
     # 子命令
     subparsers = parser.add_subparsers(dest="command", help="可用命令")
     
+    # ========== process 命令 (主功能) ==========
+    process_parser = subparsers.add_parser(
+        "process",
+        help="处理照片目录 - AI检测、评分、EXIF写入"
+    )
+    process_parser.add_argument(
+        "directory",
+        type=str,
+        help="照片目录路径"
+    )
+    process_parser.add_argument(
+        "--sharpness",
+        type=int,
+        default=7500,
+        help="锐度阈值 (默认: 7500)"
+    )
+    process_parser.add_argument(
+        "--nima",
+        type=float,
+        default=4.8,
+        help="NIMA美学阈值 (默认: 4.8)"
+    )
+    process_parser.add_argument(
+        "--no-organize",
+        action="store_true",
+        help="不移动文件到分类文件夹"
+    )
+    process_parser.add_argument(
+        "--no-cleanup",
+        action="store_true",
+        help="不删除临时JPG文件"
+    )
+    process_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="以JSON格式输出统计"
+    )
+    
     # ========== detect 命令 ==========
     detect_parser = subparsers.add_parser(
         "detect",
@@ -156,6 +194,35 @@ def print_banner():
 ╚═══════════════════════════════════════════════════════════╝
     """.format(__version__)
     print(banner)
+
+
+def cmd_process(args):
+    """执行主处理命令 - 对标GUI完整功能"""
+    from cli_processor import CLIProcessor
+    import json as json_module
+    
+    print_banner()
+    
+    # 检查目录
+    if not os.path.isdir(args.directory):
+        print(f"❌ 错误: 目录不存在 - {args.directory}")
+        return 1
+    
+    # 初始化处理器
+    ui_settings = [50, args.sharpness, args.nima, False, 'log']
+    processor = CLIProcessor(args.directory, ui_settings, verbose=True)
+    
+    # 执行处理
+    stats = processor.process(
+        organize_files=not args.no_organize,
+        cleanup_temp=not args.no_cleanup
+    )
+    
+    # JSON输出
+    if args.json:
+        print("\n" + json_module.dumps(stats, indent=2, ensure_ascii=False))
+    
+    return 0
 
 
 def cmd_detect(args):
@@ -380,7 +447,9 @@ def main():
         print_banner()
     
     # 路由到对应命令
-    if args.command == "detect":
+    if args.command == "process":
+        return cmd_process(args)
+    elif args.command == "detect":
         return cmd_detect(args)
     elif args.command == "info":
         return cmd_info(args)
