@@ -6,8 +6,14 @@ Rating Engine - 评分引擎
 
 职责：
 - 接收原始数据（置信度、锐度、美学分数、失真分数）
-- 根据配置计算评分（0-3星）和旗标
+- 根据配置计算评分和旗标
 - 返回评分结果和原因
+
+评分等级（简化版）：
+- -1 = 无鸟（排除）
+-  0 = 普通（不达标）
+-  2 = 良好（锐度或美学达标）
+-  3 = 优选（锐度+美学双达标）
 
 注意：精选旗标(picked) 在所有照片处理完后由 PhotoProcessor 单独计算
 """
@@ -19,7 +25,7 @@ from typing import Optional, Tuple
 @dataclass
 class RatingResult:
     """评分结果"""
-    rating: int          # -1=无鸟, 0=技术差, 1=普通, 2=良好, 3=优选
+    rating: int          # -1=无鸟, 0=普通(不达标), 2=良好, 3=优选
     pick: int            # 0=无旗标, 1=精选, -1=排除
     reason: str          # 评分原因说明
     
@@ -30,24 +36,21 @@ class RatingResult:
             return "⭐⭐⭐"
         elif self.rating == 2:
             return "⭐⭐"
-        elif self.rating == 1:
-            return "⭐"
         elif self.rating == 0:
-            return "0星"
-        else:
+            return "普通"
+        else:  # -1
             return "❌"
 
 
 class RatingEngine:
     """
-    评分引擎
+    评分引擎（简化版）
     
     评分规则（从底部往上判定）：
-    1. 无鸟 → -1星 (Rejected)
-    2. 置信度/失真/美学/锐度不达标 → 0星 (技术质量差)
-    3. 锐度 >= 阈值 AND 美学 >= 阈值 → 3星 (优选)
-    4. 锐度 >= 阈值 OR 美学 >= 阈值 → 2星 (良好)
-    5. 其他 → 1星 (普通)
+    1. 无鸟 → -1 (Rejected)
+    2. 锐度 >= 阈值 AND 美学 >= 阈值 → 3星 (优选)
+    3. 锐度 >= 阈值 OR 美学 >= 阈值 → 2星 (良好)
+    4. 其他 → 0 (普通/不达标)
     """
     
     def __init__(
@@ -111,7 +114,7 @@ class RatingEngine:
                 reason="未检测到鸟类"
             )
         
-        # 第二步：0 星淘汰条件（技术质量差）
+        # 第二步：最低标准检查（不达标 → 0星普通）
         if confidence < self.min_confidence:
             return RatingResult(
                 rating=0,
@@ -166,11 +169,11 @@ class RatingEngine:
                     reason="良好照片（美学达标）"
                 )
         
-        # 第五步：1 星（普通照片）
+        # 第五步：0 = 普通（通过最低标准但未达标）
         return RatingResult(
-            rating=1,
+            rating=0,
             pick=0,
-            reason="普通照片"
+            reason="普通照片（锐度和美学均未达标）"
         )
     
     def update_thresholds(

@@ -29,11 +29,10 @@ from exiftool_manager import get_exiftool_manager
 from advanced_config import get_advanced_config
 from core.rating_engine import RatingEngine, create_rating_engine_from_config
 
-# 文件夹名称映射
+# 文件夹名称映射（简化版：只有 2 星和 3 星有文件夹）
 RATING_FOLDER_NAMES = {
     3: "3星_优选",
-    2: "2星_良好",
-    1: "1星_普通"
+    2: "2星_良好"
 }
 
 
@@ -107,14 +106,13 @@ class PhotoProcessor:
         self._log(f"  ⚙️  高级配置 - min_sharpness: {self.config.min_sharpness}")
         self._log(f"  ⚙️  高级配置 - min_nima: {self.config.min_nima}\n")
         
-        # 统计数据
+        # 统计数据（简化版：无 star_1）
         self.stats = {
             'total': 0,
             'star_3': 0,
             'picked': 0,
             'star_2': 0,
-            'star_1': 0,
-            'star_0': 0,
+            'star_0': 0,  # 普通照片
             'no_bird': 0,
             'start_time': 0,
             'end_time': 0,
@@ -397,12 +395,10 @@ class PhotoProcessor:
             self._log(f"  ⭐⭐⭐ 优选照片 (AI:{conf:.2f}, 锐度:{sharp:.1f}{iqa_text})", "success")
         elif rating == 2:
             self._log(f"  ⭐⭐ 良好照片 (AI:{conf:.2f}, 锐度:{sharp:.1f}{iqa_text})", "info")
-        elif rating == 1:
-            self._log(f"  ⭐ 普通照片 (AI:{conf:.2f}, 锐度:{sharp:.1f}{iqa_text})", "warning")
         elif rating == 0:
-            self._log(f"  0星 - {reason} (AI:{conf:.2f}, 锐度:{sharp:.1f}{iqa_text})", "warning")
+            self._log(f"  普通照片 (AI:{conf:.2f}, 锐度:{sharp:.1f}{iqa_text})", "warning")
         else:  # -1
-            self._log(f"  ❌ 已拒绝 - {reason}", "error")
+            self._log(f"  ❌ 无鸟 - {reason}", "error")
     
     def _update_stats(self, rating: int):
         """更新统计数据"""
@@ -411,10 +407,8 @@ class PhotoProcessor:
             self.stats['star_3'] += 1
         elif rating == 2:
             self.stats['star_2'] += 1
-        elif rating == 1:
-            self.stats['star_1'] += 1
         elif rating == 0:
-            self.stats['star_0'] += 1
+            self.stats['star_0'] += 1  # 普通照片
         else:  # -1
             self.stats['no_bird'] += 1
     
