@@ -684,24 +684,26 @@ class SuperPickyMainWindow(QMainWindow):
             )
             return
         
-        # TODO: 实现 PostAdjustmentDialog 的 PySide6 版本
-        from post_adjustment_dialog import PostAdjustmentDialog
-        # 暂时使用 Tkinter 版本（需要后续迁移）
-        QMessageBox.information(
+        from .post_adjustment_dialog import PostAdjustmentDialog
+        dialog = PostAdjustmentDialog(
             self,
-            "提示",
-            "重新评星功能即将迁移到 PySide6\n请暂时使用原版本"
+            self.directory_path,
+            current_sharpness=self.sharp_slider.value(),
+            current_nima=self.nima_slider.value() / 10.0,
+            on_complete_callback=self._on_post_adjustment_complete
         )
+        dialog.exec()
+    
+    def _on_post_adjustment_complete(self):
+        """重新评星完成回调"""
+        self._log("✅ 重新评星完成！评分已更新到EXIF元数据")
     
     @Slot()
     def _show_advanced_settings(self):
         """显示高级设置"""
-        # TODO: 实现 AdvancedSettingsDialog 的 PySide6 版本
-        QMessageBox.information(
-            self,
-            "提示",
-            "高级设置功能即将迁移到 PySide6\n请暂时使用原版本"
-        )
+        from .advanced_settings_dialog import AdvancedSettingsDialog
+        dialog = AdvancedSettingsDialog(self)
+        dialog.exec()
     
     @Slot()
     def _show_about(self):
