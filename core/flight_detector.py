@@ -49,11 +49,16 @@ class FlightDetector:
         self.device = None
         self.model_loaded = False
         
-        # 确定模型路径
+        # 确定模型路径（支持 PyInstaller 打包）
         if model_path is None:
-            # 默认路径：项目根目录/models/superFlier_efficientnet.pth
-            project_root = Path(__file__).parent.parent
-            self.model_path = project_root / "models" / "superFlier_efficientnet.pth"
+            import sys
+            if hasattr(sys, '_MEIPASS'):
+                # PyInstaller 打包后的路径
+                self.model_path = Path(sys._MEIPASS) / "models" / "superFlier_efficientnet.pth"
+            else:
+                # 开发环境：项目根目录/models/
+                project_root = Path(__file__).parent.parent
+                self.model_path = project_root / "models" / "superFlier_efficientnet.pth"
         else:
             self.model_path = Path(model_path)
         

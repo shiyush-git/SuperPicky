@@ -65,20 +65,31 @@ class KeypointDetector:
     """鸟类关键点检测器"""
     
     # 默认配置
-    DEFAULT_MODEL_PATH = "models/cub200_keypoint_resnet50.pth"
     IMG_SIZE = 416
     VISIBILITY_THRESHOLD = 0.5  # 至少一只眼睛可见性需≥0.5才算"眼睛可见"
     RADIUS_MULTIPLIER = 1.2         # 有喙时的半径系数
     NO_BEAK_RADIUS_RATIO = 0.15     # 无喙时用检测框的15%
+    
+    @staticmethod
+    def _get_default_model_path() -> str:
+        """获取默认模型路径（支持 PyInstaller 打包）"""
+        import sys
+        if hasattr(sys, '_MEIPASS'):
+            # PyInstaller 打包后的路径
+            return os.path.join(sys._MEIPASS, 'models', 'cub200_keypoint_resnet50.pth')
+        else:
+            # 开发环境：从当前文件向上找项目根目录
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            return os.path.join(project_root, 'models', 'cub200_keypoint_resnet50.pth')
     
     def __init__(self, model_path: str = None):
         """
         初始化关键点检测器
         
         Args:
-            model_path: 模型文件路径，默认使用 DEFAULT_MODEL_PATH
+            model_path: 模型文件路径，默认使用自动检测的路径
         """
-        self.model_path = model_path or self.DEFAULT_MODEL_PATH
+        self.model_path = model_path or self._get_default_model_path()
         self.device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
         self.model = None
         self.transform = transforms.Compose([
