@@ -59,7 +59,10 @@ temp_models/
 # 构建和发布文件
 *.dmg
 *.log
-build_*.sh
 test_*.sh
 quick_test.sh
 DEBUG_VERSION_README.md
+
+# 旧的打包脚本（保留本地备份，不同步）
+package_notarize.sh
+package_unsigned.sh

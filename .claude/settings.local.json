@@ -157,7 +157,10 @@
       "Bash(ls:*)",
       "Skill(frontend-design)",
       "Bash(grep:*)",
-      "Bash(git -C /Users/jameszhenyu/PycharmProjects/SuperPicky_SandBox log --oneline)"
+      "Bash(git -C /Users/jameszhenyu/PycharmProjects/SuperPicky_SandBox log --oneline)",
+      "Bash(security add-generic-password:*)",
+      "Bash(security find-generic-password:*)",
+      "Bash(./build_release.sh:*)"
     ],
     "deny": [],
     "ask": []
