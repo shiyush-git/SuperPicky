@@ -515,15 +515,15 @@ class PhotoProcessor:
                 except Exception as e:
                     pass  # 曝光检测失败不影响处理
             
-            # Phase 6: V3.9 对焦点验证（Nikon NEF / Sony ARW / Canon CR3 / Olympus ORF）
+            # Phase 6: V3.9 对焦点验证（多相机品牌支持）
             # 4 层检测: 头部(1.2) > SEG(1.0) > BBox(0.8) > 外部(0.6)
             focus_weight = 1.0  # 默认无影响
             if detected and bird_bbox is not None and img_dims is not None:
                 if file_prefix in raw_dict:
                     raw_ext = raw_dict[file_prefix]
                     raw_path = os.path.join(self.dir_path, file_prefix + raw_ext)
-                    # 支持 Nikon NEF/NRW, Sony ARW, Canon CR3, Olympus ORF
-                    if raw_ext.lower() in ['.nef', '.nrw', '.arw', '.cr3', '.orf']:
+                    # Nikon, Sony, Canon, Olympus 全支持
+                    if raw_ext.lower() in ['.nef', '.nrw', '.arw', '.cr3', '.cr2', '.orf']:
                         try:
                             focus_detector = get_focus_detector()
                             focus_result = focus_detector.detect(raw_path)

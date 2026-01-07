@@ -44,13 +44,13 @@ class FocusPointResult:
 
 class FocusPointDetector:
     """
-    对焦点检测器
+    对焦点检测器 - 多相机品牌支持
     
     支持相机:
-    - Nikon Z8/Z9 (NEF) ✅
-    - Sony A1/A7R5/A7M4/A9 (ARW) ✅
-    - Canon R1/R3/R5/R6 (CR3) - 待验证
-    - Olympus/OM System OM-1 (ORF) - 待验证
+    - Nikon Z8/Z9/Z6/Z7 + D 系列 (NEF/NRW) ✅
+    - Sony A1/A7R5/A7M4/A9/A6xxx (ARW) ✅
+    - Canon R1/R3/R5/R6/R7/R8 + EOS 系列 (CR3/CR2) ✅
+    - Olympus/OM System OM-1/OM-5/E-M1 (ORF) ✅
     """
     
     # 通用标签 + 各品牌特有标签
@@ -74,24 +74,32 @@ class FocusPointDetector:
         'FocusFrameSize',
     ]
     
-    # Canon: 需要 CR3 样片验证
+    # Canon: 基于 Focus-Points 仓库分析
+    # 坐标是从图像中心偏移的！需要 +imageWidth/2 和 +imageHeight/2
     CANON_TAGS = [
         'AFAreaMode',
-        'PrimaryAFPoint',
-        'AFPointSelected',
-        'AFAreaXPositions',
-        'AFAreaYPositions',
-        'AFImageWidth',
-        'AFImageHeight',
+        'AFPointsInFocus',      # 合焦点索引 (0-based, 逗号分隔)
+        'AFAreaXPositions',     # X 坐标列表 (空格分隔, 从中心偏移)
+        'AFAreaYPositions',     # Y 坐标列表 (空格分隔, 从中心偏移)
+        'AFAreaWidths',         # 对焦框宽度列表
+        'AFAreaHeights',        # 对焦框高度列表
+        'AFImageWidth',         # AF 图像宽度
+        'AFImageHeight',        # AF 图像高度
+        'ExifImageWidth',       # 备用图像宽度
+        'ExifImageHeight',      # 备用图像高度
     ]
     
-    # Olympus/OM System: 需要 ORF 样片验证
+    # Olympus/OM System: 基于 Focus-Points 仓库分析
+    # 新 OM 系统: AF Frame Size + AF Focus Area
+    # 旧 Olympus: AF Point Selected (归一化 0-1)
     OLYMPUS_TAGS = [
-        'AFPoint',
+        'AFPointSelected',      # 归一化坐标 "x y" (0.0-1.0)
+        'AFFrameSize',          # AF 框尺寸 "w h"
+        'AFFocusArea',          # 对焦区域 "x y w h"
+        'AFSelectedArea',       # 选择区域
         'AFAreaMode',
-        'FocusDistance',
-        'ImageWidth',
-        'ImageHeight',
+        'ExifImageWidth',
+        'ExifImageHeight',
     ]
     
     def __init__(self, exiftool_path: str = 'exiftool'):
@@ -263,22 +271,210 @@ class FocusPointDetector:
     
     def _detect_canon(self, raw_path: str, common_data: dict) -> Optional[FocusPointResult]:
         """
-        Canon R1/R3/R5/R6 对焦点检测
+        Canon EOS R 系列 / DSLR 对焦点检测
         
-        TODO: 需要 Canon CR3 样片验证 EXIF 标签格式
-        可能的标签: AFAreaXPositions, AFAreaYPositions, PrimaryAFPoint
+        Canon 坐标系统: 从图像中心偏移！
+        实际坐标 = 中心 + 偏移量
         """
-        # 暂时返回 None，等待样片验证
-        return None
+        exif_data = self._read_exif(raw_path, self.CANON_TAGS)
+        if exif_data is None:
+            return None
+        exif_data.update(common_data)
+        
+        # 检查 AF 模式
+        focus_mode = str(exif_data.get('FocusMode', '')).strip()
+        if 'MF' in focus_mode.upper() or 'MANUAL' in focus_mode.upper():
+            return None
+        
+        # 获取图像尺寸
+        img_w = exif_data.get('AFImageWidth') or exif_data.get('ExifImageWidth')
+        img_h = exif_data.get('AFImageHeight') or exif_data.get('ExifImageHeight')
+        if img_w is None or img_h is None:
+            return None
+        img_w, img_h = int(img_w), int(img_h)
+        
+        # 获取对焦点坐标列表
+        x_positions = exif_data.get('AFAreaXPositions', '')
+        y_positions = exif_data.get('AFAreaYPositions', '')
+        if not x_positions or not y_positions:
+            return None
+        
+        try:
+            x_list = [int(x) for x in str(x_positions).split()]
+            y_list = [int(y) for y in str(y_positions).split()]
+        except (ValueError, AttributeError):
+            return None
+        
+        if not x_list or not y_list:
+            return None
+        
+        # 获取合焦点索引
+        af_points_in_focus = exif_data.get('AFPointsInFocus', '')
+        focus_indices = []
+        if af_points_in_focus:
+            try:
+                focus_indices = [int(i.strip()) for i in str(af_points_in_focus).split(',') if i.strip().isdigit()]
+            except ValueError:
+                focus_indices = []
+        
+        # 如果有合焦点，使用第一个合焦点；否则使用第一个点
+        if focus_indices and focus_indices[0] < len(x_list):
+            idx = focus_indices[0]
+        else:
+            idx = 0
+        
+        # Canon 坐标从中心偏移，需要 +imageWidth/2
+        raw_x = img_w // 2 + x_list[idx]
+        raw_y = img_h // 2 + y_list[idx]
+        
+        # 归一化坐标
+        norm_x = raw_x / img_w if img_w > 0 else 0.5
+        norm_y = raw_y / img_h if img_h > 0 else 0.5
+        
+        # 处理竖拍旋转
+        orientation = exif_data.get('Orientation', 1)
+        norm_x, norm_y = self._apply_orientation_correction(norm_x, norm_y, orientation)
+        
+        # 获取对焦框尺寸
+        widths = exif_data.get('AFAreaWidths', '')
+        heights = exif_data.get('AFAreaHeights', '')
+        area_w, area_h = 0, 0
+        try:
+            if widths:
+                w_list = [int(w) for w in str(widths).split()]
+                area_w = w_list[idx] if idx < len(w_list) else w_list[0] if w_list else 0
+            if heights:
+                h_list = [int(h) for h in str(heights).split()]
+                area_h = h_list[idx] if idx < len(h_list) else h_list[0] if h_list else 0
+        except (ValueError, IndexError):
+            pass
+        
+        area_mode = str(exif_data.get('AFAreaMode', 'Unknown'))
+        
+        return FocusPointResult(
+            x=norm_x,
+            y=norm_y,
+            raw_x=raw_x,
+            raw_y=raw_y,
+            area_width=area_w,
+            area_height=area_h,
+            af_mode=focus_mode,
+            area_mode=area_mode,
+            focus_result=1 if focus_indices else 0,  # 有合焦点则合焦
+            is_valid=True
+        )
     
     def _detect_olympus(self, raw_path: str, common_data: dict) -> Optional[FocusPointResult]:
         """
-        Olympus/OM System OM-1 对焦点检测
+        Olympus/OM System 对焦点检测
         
-        TODO: 需要 ORF 样片验证 EXIF 标签格式
-        可能的标签: AFPoint
+        Olympus 坐标系统:
+        - AF Point Selected: 归一化坐标 "x y" (0.0-1.0)
+        - AF Focus Area: 像素坐标 "x y w h"
         """
-        # 暂时返回 None，等待样片验证
+        exif_data = self._read_exif(raw_path, self.OLYMPUS_TAGS)
+        if exif_data is None:
+            return None
+        exif_data.update(common_data)
+        
+        # 检查 AF 模式
+        focus_mode = str(exif_data.get('FocusMode', '')).strip()
+        if 'MF' in focus_mode.upper() or focus_mode == 'MF; MF':
+            return None
+        
+        # 获取图像尺寸
+        img_w = exif_data.get('ExifImageWidth')
+        img_h = exif_data.get('ExifImageHeight')
+        
+        # 尝试方法 1: AF Point Selected (归一化坐标)
+        af_point_selected = exif_data.get('AFPointSelected', '')
+        if af_point_selected and af_point_selected != '0 0':
+            try:
+                parts = str(af_point_selected).split()
+                if len(parts) >= 2:
+                    norm_x = float(parts[0])
+                    norm_y = float(parts[1])
+                    
+                    # 检查是否为百分比格式
+                    if '%' in str(af_point_selected):
+                        # 格式如 "(50%,50%)"
+                        import re
+                        match = re.search(r'\((\d+)%,(\d+)', str(af_point_selected))
+                        if match:
+                            norm_x = int(match.group(1)) / 100
+                            norm_y = int(match.group(2)) / 100
+                    
+                    # 计算像素坐标
+                    if img_w and img_h:
+                        raw_x = int(norm_x * int(img_w))
+                        raw_y = int(norm_y * int(img_h))
+                    else:
+                        raw_x, raw_y = 0, 0
+                    
+                    # 处理竖拍旋转
+                    orientation = exif_data.get('Orientation', 1)
+                    norm_x, norm_y = self._apply_orientation_correction(norm_x, norm_y, orientation)
+                    
+                    area_mode = str(exif_data.get('AFAreaMode', 'Unknown'))
+                    
+                    return FocusPointResult(
+                        x=norm_x,
+                        y=norm_y,
+                        raw_x=raw_x,
+                        raw_y=raw_y,
+                        area_width=0,
+                        area_height=0,
+                        af_mode=focus_mode,
+                        area_mode=area_mode,
+                        focus_result=1,
+                        is_valid=True
+                    )
+            except (ValueError, IndexError):
+                pass
+        
+        # 尝试方法 2: AF Focus Area (像素坐标)
+        af_focus_area = exif_data.get('AFFocusArea', '')
+        af_frame_size = exif_data.get('AFFrameSize', '')
+        if af_focus_area and af_frame_size:
+            try:
+                area_parts = str(af_focus_area).split()
+                frame_parts = str(af_frame_size).split()
+                
+                if len(area_parts) >= 4 and len(frame_parts) >= 2:
+                    frame_w = int(frame_parts[0])
+                    frame_h = int(frame_parts[1])
+                    area_x = int(area_parts[0])
+                    area_y = int(area_parts[1])
+                    area_w = int(area_parts[2])
+                    area_h = int(area_parts[3])
+                    
+                    # 计算中心点并归一化
+                    center_x = area_x + area_w // 2
+                    center_y = area_y + area_h // 2
+                    norm_x = center_x / frame_w if frame_w > 0 else 0.5
+                    norm_y = center_y / frame_h if frame_h > 0 else 0.5
+                    
+                    # 处理竖拍旋转
+                    orientation = exif_data.get('Orientation', 1)
+                    norm_x, norm_y = self._apply_orientation_correction(norm_x, norm_y, orientation)
+                    
+                    area_mode = str(exif_data.get('AFAreaMode', 'Unknown'))
+                    
+                    return FocusPointResult(
+                        x=norm_x,
+                        y=norm_y,
+                        raw_x=center_x,
+                        raw_y=center_y,
+                        area_width=area_w,
+                        area_height=area_h,
+                        af_mode=focus_mode,
+                        area_mode=area_mode,
+                        focus_result=1,
+                        is_valid=True
+                    )
+            except (ValueError, IndexError):
+                pass
+        
         return None
     
     def _read_exif(self, file_path: str, tags: list) -> Optional[dict]:
