@@ -51,6 +51,8 @@ class FocusPointDetector:
     - Sony A1/A7R5/A7M4/A9/A6xxx (ARW) ✅
     - Canon R1/R3/R5/R6/R7/R8 + EOS 系列 (CR3/CR2) ✅
     - Olympus/OM System OM-1/OM-5/E-M1 (ORF) ✅
+    - Fujifilm X-T5/X-H2/GFX (RAF) ✅
+    - Panasonic S5/GH6/G9 (RW2) ✅
     """
     
     # 通用标签 + 各品牌特有标签
@@ -102,6 +104,28 @@ class FocusPointDetector:
         'ExifImageHeight',
     ]
     
+    # Fujifilm: 基于 Focus-Points 仓库分析
+    # Focus Pixel: 像素坐标 "x y"
+    FUJIFILM_TAGS = [
+        'FocusPixel',           # 像素坐标 "x y"
+        'FocusMode',
+        'AFMode',
+        'AFAreaMode',
+        'ExifImageWidth',
+        'ExifImageHeight',
+    ]
+    
+    # Panasonic: 基于 Focus-Points 仓库分析  
+    # AF Point Position: 归一化坐标 "0.x 0.y" (0.0-1.0)
+    PANASONIC_TAGS = [
+        'AFPointPosition',      # 归一化坐标 "0.5 0.5"
+        'AFAreaSize',           # 对焦框尺寸 (归一化)
+        'FocusMode',
+        'AFAreaMode',
+        'ExifImageWidth',
+        'ExifImageHeight',
+    ]
+    
     def __init__(self, exiftool_path: str = 'exiftool'):
         """
         初始化检测器
@@ -134,11 +158,13 @@ class FocusPointDetector:
         elif 'SONY' in make:
             return self._detect_sony(raw_path, exif_data)
         elif 'CANON' in make:
-            # TODO: 需要 Canon CR3 样片验证
             return self._detect_canon(raw_path, exif_data)
         elif 'OLYMPUS' in make or 'OM DIGITAL' in make:
-            # TODO: 需要 Olympus/OM System ORF 样片验证
             return self._detect_olympus(raw_path, exif_data)
+        elif 'FUJIFILM' in make or 'FUJI' in make:
+            return self._detect_fujifilm(raw_path, exif_data)
+        elif 'PANASONIC' in make:
+            return self._detect_panasonic(raw_path, exif_data)
         else:
             return None  # 不支持的相机品牌
     
@@ -476,6 +502,144 @@ class FocusPointDetector:
                 pass
         
         return None
+    
+    def _detect_fujifilm(self, raw_path: str, common_data: dict) -> Optional[FocusPointResult]:
+        """
+        Fujifilm X/GFX 系列对焦点检测
+        
+        Fujifilm 坐标系统:
+        - Focus Pixel: 像素坐标 "x y"
+        """
+        exif_data = self._read_exif(raw_path, self.FUJIFILM_TAGS)
+        if exif_data is None:
+            return None
+        exif_data.update(common_data)
+        
+        # 检查 AF 模式
+        focus_mode = str(exif_data.get('FocusMode', '')).strip()
+        if 'MF' in focus_mode.upper() or 'MANUAL' in focus_mode.upper():
+            return None
+        
+        # 获取 Focus Pixel
+        focus_pixel = exif_data.get('FocusPixel', '')
+        if not focus_pixel:
+            return None
+        
+        try:
+            parts = str(focus_pixel).split()
+            if len(parts) >= 2:
+                raw_x = int(parts[0])
+                raw_y = int(parts[1])
+            else:
+                return None
+        except (ValueError, IndexError):
+            return None
+        
+        # 获取图像尺寸
+        img_w = exif_data.get('ExifImageWidth')
+        img_h = exif_data.get('ExifImageHeight')
+        if img_w is None or img_h is None:
+            return None
+        img_w, img_h = int(img_w), int(img_h)
+        
+        # 归一化坐标
+        norm_x = raw_x / img_w if img_w > 0 else 0.5
+        norm_y = raw_y / img_h if img_h > 0 else 0.5
+        
+        # 处理竖拍旋转
+        orientation = exif_data.get('Orientation', 1)
+        norm_x, norm_y = self._apply_orientation_correction(norm_x, norm_y, orientation)
+        
+        area_mode = str(exif_data.get('AFAreaMode') or exif_data.get('AFMode', 'Unknown'))
+        
+        return FocusPointResult(
+            x=norm_x,
+            y=norm_y,
+            raw_x=raw_x,
+            raw_y=raw_y,
+            area_width=0,
+            area_height=0,
+            af_mode=focus_mode,
+            area_mode=area_mode,
+            focus_result=1,
+            is_valid=True
+        )
+    
+    def _detect_panasonic(self, raw_path: str, common_data: dict) -> Optional[FocusPointResult]:
+        """
+        Panasonic LUMIX S/G 系列对焦点检测
+        
+        Panasonic 坐标系统:
+        - AF Point Position: 归一化坐标 "0.5 0.5" (0.0-1.0)
+        """
+        exif_data = self._read_exif(raw_path, self.PANASONIC_TAGS)
+        if exif_data is None:
+            return None
+        exif_data.update(common_data)
+        
+        # 检查 AF 模式
+        focus_mode = str(exif_data.get('FocusMode', '')).strip()
+        if 'MF' in focus_mode.upper() or 'MANUAL' in focus_mode.upper():
+            return None
+        
+        # 获取 AF Point Position (归一化坐标)
+        af_point_position = exif_data.get('AFPointPosition', '')
+        if not af_point_position:
+            return None
+        
+        # 检查是否为无效值
+        if '4.194e' in str(af_point_position):  # Panasonic 的 "未找到" 标记
+            return None
+        
+        try:
+            parts = str(af_point_position).split()
+            if len(parts) >= 2:
+                norm_x = float(parts[0])
+                norm_y = float(parts[1])
+            else:
+                return None
+        except (ValueError, IndexError):
+            return None
+        
+        # 获取图像尺寸计算像素坐标
+        img_w = exif_data.get('ExifImageWidth')
+        img_h = exif_data.get('ExifImageHeight')
+        if img_w and img_h:
+            raw_x = int(norm_x * int(img_w))
+            raw_y = int(norm_y * int(img_h))
+        else:
+            raw_x, raw_y = 0, 0
+        
+        # 处理竖拍旋转
+        orientation = exif_data.get('Orientation', 1)
+        norm_x, norm_y = self._apply_orientation_correction(norm_x, norm_y, orientation)
+        
+        # 获取对焦框尺寸
+        area_w, area_h = 0, 0
+        af_area_size = exif_data.get('AFAreaSize', '')
+        if af_area_size and img_w and img_h:
+            try:
+                size_parts = str(af_area_size).split()
+                if len(size_parts) >= 2:
+                    area_w = int(float(size_parts[0]) * int(img_w))
+                    area_h = int(float(size_parts[1]) * int(img_h))
+            except (ValueError, IndexError):
+                pass
+        
+        area_mode = str(exif_data.get('AFAreaMode', 'Unknown'))
+        
+        return FocusPointResult(
+            x=norm_x,
+            y=norm_y,
+            raw_x=raw_x,
+            raw_y=raw_y,
+            area_width=area_w,
+            area_height=area_h,
+            af_mode=focus_mode,
+            area_mode=area_mode,
+            focus_result=1,
+            is_valid=True
+        )
     
     def _read_exif(self, file_path: str, tags: list) -> Optional[dict]:
         """读取指定的 EXIF 标签"""
