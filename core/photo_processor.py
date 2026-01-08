@@ -601,6 +601,34 @@ class PhotoProcessor:
             elif focus_weight < 0.7:
                 focus_status = "脱焦"
             
+            # V3.9: 生成调试可视化图（仅对有鸟的照片）
+            if detected and bird_crop_bgr is not None:
+                # 计算裁剪区域内的坐标
+                head_center_crop = None
+                if head_center_orig is not None:
+                    # 转换到裁剪区域坐标
+                    head_center_crop = (head_center_orig[0] - x_orig, head_center_orig[1] - y_orig)
+                
+                focus_point_crop = None
+                if focus_x is not None and focus_y is not None and img_dims is not None:
+                    # 对焦点从归一化坐标转换为裁剪区域坐标
+                    fx_px = int(focus_x * img_dims[0]) - x_orig
+                    fy_px = int(focus_y * img_dims[1]) - y_orig
+                    focus_point_crop = (fx_px, fy_px)
+                
+                try:
+                    self._save_debug_crop(
+                        filename,
+                        bird_crop_bgr,
+                        bird_crop_mask if 'bird_crop_mask' in dir() else None,
+                        head_center_crop,
+                        head_radius_val,
+                        focus_point_crop,
+                        focus_status
+                    )
+                except Exception as e:
+                    pass  # 调试图生成失败不影响主流程
+            
             # 计算真正总耗时并输出简化日志
             photo_time_ms = (time.time() - photo_start_time) * 1000
             has_exposure_issue = is_overexposed or is_underexposed
@@ -748,6 +776,68 @@ class PhotoProcessor:
         
         # 输出简化格式
         self._log(f"[{index:03d}/{total}] {filename} | {star_text} ({reason_short}) {flight_tag}{exposure_tag}{focus_tag}| {time_text}")
+    
+    def _save_debug_crop(
+        self,
+        filename: str,
+        bird_crop_bgr: np.ndarray,
+        bird_crop_mask: np.ndarray = None,
+        head_center_crop: tuple = None,
+        head_radius: int = None,
+        focus_point_crop: tuple = None,
+        focus_status: str = None
+    ):
+        """
+        V3.9: 保存调试可视化图片到 .superpicky/debug_crops/ 目录
+        
+        标注内容：
+        - 🟢 绿色半透明: SEG mask 鸟身区域
+        - 🔵 蓝色圆圈: 头部检测区域
+        - 🔴 红色十字: 对焦点位置
+        """
+        import cv2
+        
+        # 创建调试目录
+        debug_dir = os.path.join(self.dir_path, ".superpicky", "debug_crops")
+        os.makedirs(debug_dir, exist_ok=True)
+        
+        # 复制原图
+        debug_img = bird_crop_bgr.copy()
+        h, w = debug_img.shape[:2]
+        
+        # 1. 绘制 SEG mask（绿色半透明覆盖）
+        if bird_crop_mask is not None and bird_crop_mask.shape[:2] == (h, w):
+            green_overlay = np.zeros_like(debug_img)
+            green_overlay[:] = (0, 255, 0)  # BGR 绿色
+            mask_bool = bird_crop_mask > 0
+            # 半透明叠加
+            debug_img[mask_bool] = cv2.addWeighted(
+                debug_img[mask_bool], 0.7,
+                green_overlay[mask_bool], 0.3, 0
+            )
+        
+        # 2. 绘制头部圆圈（蓝色）
+        if head_center_crop is not None and head_radius is not None:
+            cx, cy = head_center_crop
+            cv2.circle(debug_img, (cx, cy), head_radius, (255, 0, 0), 2)  # 蓝色圆圈
+            cv2.circle(debug_img, (cx, cy), 3, (255, 0, 0), -1)  # 圆心
+        
+        # 3. 绘制对焦点（红色十字）
+        if focus_point_crop is not None:
+            fx, fy = focus_point_crop
+            cross_size = 15
+            cv2.line(debug_img, (fx - cross_size, fy), (fx + cross_size, fy), (0, 0, 255), 2)
+            cv2.line(debug_img, (fx, fy - cross_size), (fx, fy + cross_size), (0, 0, 255), 2)
+        
+        # 4. 添加状态文字
+        if focus_status:
+            cv2.putText(debug_img, focus_status, (10, 30), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+        
+        # 保存调试图
+        file_prefix = os.path.splitext(filename)[0]
+        debug_path = os.path.join(debug_dir, f"{file_prefix}_debug.jpg")
+        cv2.imwrite(debug_path, debug_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
     
     def _update_stats(self, rating: int, is_flying: bool = False, has_exposure_issue: bool = False):
         """更新统计数据"""
