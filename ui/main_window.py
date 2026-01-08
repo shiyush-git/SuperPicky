@@ -599,7 +599,7 @@ class SuperPickyMainWindow(QMainWindow):
     def _on_sharp_changed(self):
         """锐度滑块变化"""
         value = self.sharp_slider.value()
-        rounded = round(value / 50) * 50
+        rounded = round(value / 10) * 10  # V4.0: 改为 10 步进
         self.sharp_slider.blockSignals(True)
         self.sharp_slider.setValue(rounded)
         self.sharp_slider.blockSignals(False)
