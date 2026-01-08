@@ -611,11 +611,13 @@ class PhotoProcessor:
                     head_center_crop = (head_center_orig[0] - x_orig, head_center_orig[1] - y_orig)
                 
                 focus_point_crop = None
-                if focus_x is not None and focus_y is not None and img_dims is not None:
+                if focus_x is not None and focus_y is not None:
                     # 对焦点从归一化坐标转换为裁剪区域坐标
-                    fx_px = int(focus_x * img_dims[0]) - x_orig
-                    fy_px = int(focus_y * img_dims[1]) - y_orig
-                    focus_point_crop = (fx_px, fy_px)
+                    # 使用原图尺寸 (w_orig, h_orig) 而不是 resize 后的 img_dims
+                    if 'w_orig' in dir() and 'h_orig' in dir():
+                        fx_px = int(focus_x * w_orig) - x_orig
+                        fy_px = int(focus_y * h_orig) - y_orig
+                        focus_point_crop = (fx_px, fy_px)
                 
                 try:
                     self._save_debug_crop(
