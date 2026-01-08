@@ -1011,8 +1011,9 @@ class SuperPickyMainWindow(QMainWindow):
         timestamp = datetime.now().strftime("%H:%M:%S")
         time_color = LOG_COLORS['time']
 
-        # 格式化消息
-        html_message = message.replace('\n', '<br>')
+        # V3.9: 格式化消息（转义 HTML 特殊字符，防止 < > & 被解释为 HTML）
+        import html
+        html_message = html.escape(message).replace('\n', '<br>')
 
         # 对于简短消息添加时间戳
         if len(message) < 100 and '\n' not in message:
