@@ -17,6 +17,49 @@ from typing import Optional, Tuple
 import subprocess
 import json
 import numpy as np
+import atexit
+
+
+# ============ Exiftool 常驻进程管理 ============
+# 使用 -stay_open 模式保持进程常驻，避免每次启动的开销
+_exiftool_process = None
+
+
+def _start_exiftool_process(exiftool_path: str = 'exiftool'):
+    """启动 exiftool 常驻进程"""
+    global _exiftool_process
+    try:
+        _exiftool_process = subprocess.Popen(
+            [exiftool_path, '-stay_open', 'True', '-@', '-'],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1  # 行缓冲
+        )
+        return _exiftool_process
+    except Exception:
+        return None
+
+
+def _stop_exiftool_process():
+    """停止 exiftool 常驻进程"""
+    global _exiftool_process
+    if _exiftool_process is not None:
+        try:
+            _exiftool_process.stdin.write('-stay_open\nFalse\n')
+            _exiftool_process.stdin.flush()
+            _exiftool_process.wait(timeout=5)
+        except Exception:
+            try:
+                _exiftool_process.kill()
+            except Exception:
+                pass
+        _exiftool_process = None
+
+
+# 程序退出时自动清理进程
+atexit.register(_stop_exiftool_process)
 
 
 @dataclass
@@ -642,7 +685,50 @@ class FocusPointDetector:
         )
     
     def _read_exif(self, file_path: str, tags: list) -> Optional[dict]:
-        """读取指定的 EXIF 标签"""
+        """读取指定的 EXIF 标签（使用常驻进程模式）"""
+        global _exiftool_process
+        
+        # 使用全局常驻进程
+        if _exiftool_process is None or _exiftool_process.poll() is not None:
+            _exiftool_process = _start_exiftool_process(self.exiftool_path)
+        
+        if _exiftool_process is None:
+            # 回退到单次调用模式
+            return self._read_exif_single(file_path, tags)
+        
+        try:
+            # 构建参数
+            args = ['-j', '-n']
+            for tag in tags:
+                args.append(f'-{tag}')
+            args.append(file_path)
+            
+            # 发送命令到常驻进程
+            cmd_str = '\n'.join(args) + '\n-execute\n'
+            _exiftool_process.stdin.write(cmd_str)
+            _exiftool_process.stdin.flush()
+            
+            # 读取响应（直到 {ready} 标记）
+            output_lines = []
+            while True:
+                line = _exiftool_process.stdout.readline()
+                if not line:
+                    break
+                if '{ready}' in line:
+                    break
+                output_lines.append(line)
+            
+            # 解析 JSON
+            output = ''.join(output_lines).strip()
+            if output:
+                data = json.loads(output)
+                return data[0] if data else None
+            return None
+        except Exception:
+            return self._read_exif_single(file_path, tags)
+    
+    def _read_exif_single(self, file_path: str, tags: list) -> Optional[dict]:
+        """读取 EXIF（单次调用模式，作为回退）"""
         cmd = [self.exiftool_path, '-j', '-n']
         for tag in tags:
             cmd.append(f'-{tag}')
