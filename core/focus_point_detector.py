@@ -765,7 +765,7 @@ def verify_focus_in_bbox(
     if head_center is not None and head_radius is not None:
         dist = np.sqrt((focus_px[0] - head_center[0])**2 + (focus_px[1] - head_center[1])**2)
         if dist <= head_radius:
-            return 1.2  # 对焦在头部区域，最佳
+            return 1.05  # 对焦在头部区域，轻微奖励
     
     # 检查是否在 SEG 掩码内
     if seg_mask is not None:
@@ -780,9 +780,9 @@ def verify_focus_in_bbox(
     in_bbox = (bx <= focus_px[0] <= bx + bw) and (by <= focus_px[1] <= by + bh)
     
     if in_bbox:
-        return 0.8  # 对焦在 BBox 内但不在鸟身上（背景），轻微惩罚
+        return 0.7  # 对焦在 BBox 内但不在鸟身上（背景），中度惩罚
     else:
-        return 0.6  # 对焦完全在 BBox 外，较大惩罚
+        return 0.5  # 对焦完全在 BBox 外，严重惩罚
 
 
 # 全局单例

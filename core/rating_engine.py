@@ -175,18 +175,18 @@ class RatingEngine:
             exposure_suffix = "，欠曝"
         
         # V3.9: 对焦权重处理 - 直接乘以锐度值
-        # 权重: 1.2(头部) / 1.0(SEG) / 0.8(BBox) / 0.6(外部)
+        # 权重: 1.05(头部) / 1.0(SEG) / 0.7(BBox) / 0.5(外部)
         adjusted_sharpness = sharpness * focus_weight
         
         # 设置对焦状态后缀
         focus_suffix = ""
-        if focus_weight >= 1.2:
+        if focus_weight > 1.0:
             focus_suffix = "，对焦头部"
         elif focus_weight >= 1.0:
             pass  # 对焦在鸟身上，正常，不显示后缀
-        elif focus_weight >= 0.8:
+        elif focus_weight >= 0.7:
             focus_suffix = "，对焦偏移"
-        else:  # 0.6
+        else:  # 0.5
             focus_suffix = "，对焦错误"
         
         # 第五步：3 星判定（锐度 >= 阈值 AND TOPIQ >= 阈值）
