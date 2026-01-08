@@ -197,6 +197,7 @@ class ExifToolManager:
             nima_score = item.get('nima_score', None)
             label = item.get('label', None)  # V3.4: 颜色标签
             focus_status = item.get('focus_status', None)  # V3.9: 对焦状态
+            caption = item.get('caption', None)  # V4.0: 详细评分说明
 
             if not os.path.exists(file_path):
                 print(f"⏭️  跳过不存在的文件: {file_path}")
@@ -230,6 +231,11 @@ class ExifToolManager:
             # V3.9: 对焦状态 → XMP:Country（国家）
             if focus_status is not None:
                 cmd.append(f'-XMP:Country={focus_status}')
+            
+            # V4.0: 详细评分说明 → XMP:Description（题注）
+            if caption is not None:
+                # 使用双引号包裹，处理特殊字符
+                cmd.append(f'-XMP:Description={caption}')
 
             cmd.append(file_path)
             cmd.append('-overwrite_original')  # 放在每个文件之后

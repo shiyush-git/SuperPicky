@@ -670,6 +670,49 @@ class PhotoProcessor:
                     elif focus_sharpness_weight > 1.0:  # 头部对焦 (1.1)
                         label = 'Red'
                     
+                    # V4.0: 构建详细评分说明
+                    caption_parts = []
+                    caption_parts.append(f"[SuperPicky V4.0 评分报告]")
+                    caption_parts.append(f"最终评分: {rating_value}星 | {reason}")
+                    caption_parts.append("")
+                    
+                    # 原始数据
+                    caption_parts.append("[原始检测数据]")
+                    caption_parts.append(f"AI置信度: {confidence:.0%}")
+                    caption_parts.append(f"头部锐度: {head_sharpness:.2f}" if head_sharpness else "头部锐度: 无法计算")
+                    caption_parts.append(f"TOPIQ美学: {topiq:.2f}" if topiq else "TOPIQ美学: 未计算")
+                    caption_parts.append(f"眼睛可见度: {best_eye_visibility:.0%}")
+                    caption_parts.append("")
+                    
+                    # 修正因子
+                    caption_parts.append("[修正因子]")
+                    caption_parts.append(f"对焦锐度权重: {focus_sharpness_weight:.2f}")
+                    caption_parts.append(f"对焦美学权重: {focus_topiq_weight:.2f}")
+                    caption_parts.append(f"是否飞鸟: {'是 (锐度×1.2, 美学×1.1)' if is_flying else '否'}")
+                    caption_parts.append("")
+                    
+                    # 调整后数值
+                    caption_parts.append("[调整后数值]")
+                    adj_sharpness = head_sharpness * focus_sharpness_weight if head_sharpness else 0
+                    if is_flying and head_sharpness:
+                        adj_sharpness = adj_sharpness * 1.2
+                    caption_parts.append(f"调整后锐度: {adj_sharpness:.2f} (阈值400)")
+                    
+                    if topiq:
+                        adj_topiq = topiq * focus_topiq_weight
+                        if is_flying:
+                            adj_topiq = adj_topiq * 1.1
+                        caption_parts.append(f"调整后美学: {adj_topiq:.2f} (阈值5.0)")
+                    caption_parts.append("")
+                    
+                    # 渐进可见度
+                    visibility_weight = max(0.5, min(1.0, best_eye_visibility * 2))
+                    caption_parts.append(f"[可见度降权]")
+                    caption_parts.append(f"可见度权重: {visibility_weight:.2f}")
+                    caption_parts.append(f"公式: max(0.5, min(1.0, {best_eye_visibility:.2f}×2))")
+                    
+                    caption = " | ".join(caption_parts)
+                    
                     single_batch = [{
                         'file': target_file_path,
                         'rating': rating_value if rating_value >= 0 else 0,
@@ -677,7 +720,8 @@ class PhotoProcessor:
                         'sharpness': head_sharpness,
                         'nima_score': topiq,  # V3.8: 实际是 TOPIQ 分数
                         'label': label,
-                        'focus_status': focus_status  # V3.9: 对焦状态写入 Country 字段
+                        'focus_status': focus_status,  # V3.9: 对焦状态写入 Country 字段
+                        'caption': caption,  # V4.0: 详细评分说明
                     }]
                     exiftool_mgr.batch_set_metadata(single_batch)
             else:
