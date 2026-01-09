@@ -208,7 +208,7 @@ class AdvancedSettingsDialog(QDialog):
         self.vars["min_sharpness"] = self._create_slider_setting(
             layout,
             self.i18n.t("settings.min_sharpness"),
-            min_val=200, max_val=500, default=250,
+            min_val=100, max_val=500, default=100,  # V4.1: 最小调整为100
             step=10
         )
 
