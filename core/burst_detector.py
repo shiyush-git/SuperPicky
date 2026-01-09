@@ -14,6 +14,7 @@ from typing import List, Optional, Tuple, Dict
 import os
 import subprocess
 import json
+import sys  # V3.9: 用于检测 PyInstaller 打包环境
 
 
 @dataclass
