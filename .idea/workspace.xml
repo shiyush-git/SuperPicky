@@ -7,27 +7,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="620992e9-a1fe-4912-911a-e1e6e312c7a0" name="Changes" comment="增加了 内容修改记录">
-      <change beforePath="$PROJECT_DIR$/.claude/settings.local.json" beforeDir="false" afterPath="$PROJECT_DIR$/.claude/settings.local.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/SuperPickyV0.02.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/SuperPickyV0.02.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/jsLibraryMappings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/jsLibraryMappings.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/_Z9W8809_preview.jpg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/compare_iqa.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/compare_iqa_crop.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/compare_iqa_full.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/compare_iqa_results.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/compare_nima_topiq.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/compare_sharpness.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/compare_sharpness_full.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/design_mockup.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/慧眼选鸟_微信公众号宣传稿.html" beforeDir="false" afterPath="$PROJECT_DIR$/docs/慧眼选鸟_微信公众号宣传稿.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/慧眼选鸟_微信公众号宣传稿.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/慧眼选鸟_微信公众号宣传稿.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/generate_comparison.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/main_window.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/main_window.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/yolo11m-seg.pt" beforeDir="false" />
-    </list>
+    <list default="true" id="620992e9-a1fe-4912-911a-e1e6e312c7a0" name="Changes" comment="增加了 内容修改记录" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -99,7 +79,7 @@
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "ai.playground.ignore.import.keys.banner.in.settings": "true",
     "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
-    "git-widget-placeholder": "master",
+    "git-widget-placeholder": "burst",
     "junie.onboarding.icon.badge.shown": "true",
     "last_opened_file_path": "/Users/jameszhenyu/Documents/JamesAPPS/SuperPicky2026",
     "node.js.detected.package.eslint": "true",
@@ -203,6 +183,7 @@
       <workItem from="1767701902129" duration="137000" />
       <workItem from="1767702173916" duration="414000" />
       <workItem from="1767702596353" duration="805000" />
+      <workItem from="1767961511924" duration="34000" />
     </task>
     <task id="LOCAL-00001" summary="增加了 内容修改记录">
       <option name="closed" value="true" />

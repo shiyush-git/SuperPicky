@@ -636,14 +636,15 @@ class SuperPickyMainWindow(QMainWindow):
         self.reset_btn.clicked.connect(self._reset_directory)
         btn_layout.addWidget(self.reset_btn)
 
-        # 重新评星按钮 (次级按钮)
-        self.post_da_btn = QPushButton(self.i18n.t("labels.re_rate"))
-        self.post_da_btn.setObjectName("secondary")
-        self.post_da_btn.setMinimumWidth(100)
-        self.post_da_btn.setMinimumHeight(40)
-        self.post_da_btn.setEnabled(False)
-        self.post_da_btn.clicked.connect(self._open_post_adjustment)
-        btn_layout.addWidget(self.post_da_btn)
+        # V4.1: 重新评星按钮暂时禁用（计算逻辑复杂度高，预览结果不一致）
+        # TODO: 未来版本重构后恢复此功能
+        # self.post_da_btn = QPushButton(self.i18n.t("labels.re_rate"))
+        # self.post_da_btn.setObjectName("secondary")
+        # self.post_da_btn.setMinimumWidth(100)
+        # self.post_da_btn.setMinimumHeight(40)
+        # self.post_da_btn.setEnabled(False)
+        # self.post_da_btn.clicked.connect(self._open_post_adjustment)
+        # btn_layout.addWidget(self.post_da_btn)
 
         # 开始按钮 (主按钮)
         self.start_btn = QPushButton(self.i18n.t("labels.start_processing"))
@@ -741,15 +742,15 @@ class SuperPickyMainWindow(QMainWindow):
     def _check_report_csv(self):
         """检查是否有 report.csv"""
         if not self.directory_path:
-            self.post_da_btn.setEnabled(False)
+            # self.post_da_btn.setEnabled(False)  # V4.1: 重新评星按钮已禁用
             return
 
         report_path = os.path.join(self.directory_path, ".superpicky", "report.csv")
         if os.path.exists(report_path):
-            self.post_da_btn.setEnabled(True)
+            # self.post_da_btn.setEnabled(True)  # V4.1: 重新评星按钮已禁用
             self._log(self.i18n.t("messages.report_detected"))
         else:
-            self.post_da_btn.setEnabled(False)
+            pass  # self.post_da_btn.setEnabled(False)  # V4.1: 重新评星按钮已禁用
 
     def _update_status(self, text, color=None):
         """更新状态指示器"""
@@ -850,7 +851,7 @@ class SuperPickyMainWindow(QMainWindow):
         """处理完成"""
         self.start_btn.setEnabled(True)
         self.reset_btn.setEnabled(True)
-        self.post_da_btn.setEnabled(True)
+        # self.post_da_btn.setEnabled(True)  # V4.1: 重新评星按钮已禁用
         self.progress_bar.setValue(100)
         self.progress_percent_label.setText("100%")
         self.progress_info_label.setText(self.i18n.t("labels.complete"))
