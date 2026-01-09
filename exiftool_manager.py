@@ -191,8 +191,9 @@ class ExifToolManager:
 
         for item in files_metadata:
             file_path = item['file']
-            rating = item.get('rating', 0)
-            pick = item.get('pick', 0)
+            # V4.1: 只在明确提供 rating/pick 时才写入，避免覆盖已有值
+            rating = item.get('rating', None)  # None 表示不写入
+            pick = item.get('pick', None)      # None 表示不写入
             sharpness = item.get('sharpness', None)
             nima_score = item.get('nima_score', None)
             label = item.get('label', None)  # V3.4: 颜色标签
@@ -205,10 +206,11 @@ class ExifToolManager:
                 continue
 
             # 为这个文件添加命令参数
-            cmd.extend([
-                f'-Rating={rating}',
-                f'-XMP:Pick={pick}',
-            ])
+            # V4.1: 只在明确提供时才写入 Rating/Pick
+            if rating is not None:
+                cmd.append(f'-Rating={rating}')
+            if pick is not None:
+                cmd.append(f'-XMP:Pick={pick}')
 
             # V3.9.1: 改用 XMP 字段代替 IPTC，解决 Canon CR3 等格式不支持 IPTC 问题
             # XMP 字段在 Lightroom 中同样可以按 City/State/Country 排序
