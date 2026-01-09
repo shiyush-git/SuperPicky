@@ -43,6 +43,92 @@ def print_banner():
     print("━" * 60)
 
 
+def cmd_burst(args):
+    """连拍检测与分组"""
+    from core.burst_detector import BurstDetector
+    from exiftool_manager import ExifToolManager
+    
+    print_banner()
+    print(f"\n📁 目标目录: {args.directory}")
+    print(f"⚙️  最小连拍张数: {args.min_count}")
+    print(f"⚙️  时间阈值: {args.threshold}ms")
+    print(f"⚙️  执行模式: {'实际处理' if args.execute else '仅预览'}")
+    print()
+    
+    # 创建检测器
+    detector = BurstDetector()
+    detector.MIN_BURST_COUNT = args.min_count
+    detector.TIME_THRESHOLD_MS = args.threshold
+    
+    # 运行检测
+    print("🔍 正在检测连拍组...")
+    results = detector.run_full_detection(args.directory)
+    
+    # 显示结果
+    print(f"\n{'═' * 50}")
+    print("  连拍检测结果")
+    print(f"{'═' * 50}")
+    print(f"\n📊 总览:")
+    print(f"  总照片数: {results['total_photos']}")
+    print(f"  有毫秒时间戳: {results['photos_with_subsec']}")
+    print(f"  连拍组数: {results['groups_detected']}")
+    
+    for dir_name, data in results['groups_by_dir'].items():
+        print(f"\n📂 {dir_name}:")
+        print(f"  照片数: {data['photos']}")
+        print(f"  连拍组: {data['groups']}")
+        
+        for g in data['group_details']:
+            print(f"    组 #{g['id']}: {g['count']} 张, 最佳: {g['best']}")
+    
+    # 执行模式
+    if args.execute and results['groups_detected'] > 0:
+        print(f"\n🚀 开始处理连拍组...")
+        
+        exiftool_mgr = ExifToolManager()
+        total_stats = {'groups_processed': 0, 'photos_moved': 0, 'best_marked': 0}
+        
+        rating_dirs = ['3星_优选', '2星_良好']
+        for rating_dir in rating_dirs:
+            subdir = os.path.join(args.directory, rating_dir)
+            if not os.path.exists(subdir):
+                continue
+            
+            # 重新获取该目录的 groups
+            extensions = {'.nef', '.rw2', '.arw', '.cr2', '.cr3', '.orf', '.dng'}
+            filepaths = []
+            for entry in os.scandir(subdir):
+                if entry.is_file():
+                    ext = os.path.splitext(entry.name)[1].lower()
+                    if ext in extensions:
+                        filepaths.append(entry.path)
+            
+            if not filepaths:
+                continue
+            
+            photos = detector.read_timestamps(filepaths)
+            csv_path = os.path.join(args.directory, '.superpicky', 'report.csv')
+            photos = detector.enrich_from_csv(photos, csv_path)
+            groups = detector.detect_groups(photos)
+            groups = detector.select_best_in_groups(groups)
+            
+            # 处理
+            stats = detector.process_burst_groups(groups, subdir, exiftool_mgr)
+            total_stats['groups_processed'] += stats['groups_processed']
+            total_stats['photos_moved'] += stats['photos_moved']
+            total_stats['best_marked'] += stats['best_marked']
+        
+        print(f"\n✅ 处理完成!")
+        print(f"  处理组数: {total_stats['groups_processed']}")
+        print(f"  移动照片: {total_stats['photos_moved']}")
+        print(f"  紫色标记: {total_stats['best_marked']}")
+    elif not args.execute:
+        print(f"\n💡 预览模式，未实际处理。添加 --execute 参数执行实际处理。")
+    
+    print()
+    return 0
+
+
 def cmd_process(args):
     """处理照片目录"""
     from cli_processor import CLIProcessor
@@ -396,6 +482,16 @@ Examples:
     p_info = subparsers.add_parser('info', help='查看目录信息')
     p_info.add_argument('directory', help='照片目录路径')
     
+    # ===== burst 命令 =====
+    p_burst = subparsers.add_parser('burst', help='连拍检测与分组')
+    p_burst.add_argument('directory', help='照片目录路径')
+    p_burst.add_argument('-m', '--min-count', type=int, default=3,
+                         help='最小连拍张数 (默认: 3)')
+    p_burst.add_argument('-t', '--threshold', type=int, default=150,
+                         help='时间阈值(ms) (默认: 150)')
+    p_burst.add_argument('--execute', action='store_true',
+                         help='实际执行处理（默认仅预览）')
+    
     # 解析参数
     args = parser.parse_args()
     
@@ -420,6 +516,8 @@ Examples:
         return cmd_restar(args)
     elif args.command == 'info':
         return cmd_info(args)
+    elif args.command == 'burst':
+        return cmd_burst(args)
     else:
         parser.print_help()
         return 1
