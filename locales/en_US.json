@@ -54,7 +54,7 @@
     "re_rate": "Re-rate",
     "start_processing": "Start Processing",
     "reset_short": "Reset",
-    "dir_placeholder": "Select or paste directory path...",
+    "dir_placeholder": "📁 Drop folder here or click to select...",
     "yes": "Yes",
     "no": "No",
     "error": "Error",
