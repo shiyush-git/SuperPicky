@@ -361,7 +361,7 @@
     "step4": "导入 Lightroom 进行后期处理与管理",
     "rating_rules_title": "评分规则：",
     "rule_3_star": "⭐⭐⭐ = 锐度+美学双达标（3星）",
-    "rule_picked": "  └─ 🏆 精选旗标 = 3星中美学+锐度双排名Top 25%交集",
+    "rule_picked": "  └─ 🏆 精选旗标 = 3星中美学+锐度双排名Top {percentage}%交集",
     "rule_2_star": "⭐⭐ = 锐度或美学达标之一（2星）",
     "rule_1_star": "⭐ = 有鸟但未达标（1星）",
     "rule_0_star": "0星/❌无鸟 = 技术质量差或没有鸟 → 0星_放弃/",

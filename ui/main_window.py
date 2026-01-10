@@ -1170,7 +1170,7 @@ class SuperPickyMainWindow(QMainWindow):
 
 {t("help.rating_rules_title")}
   {t("help.rule_3_star")}
-    {t("help.rule_picked")}
+    {t("help.rule_picked", percentage=self.config.picked_top_percentage)}
   {t("help.rule_2_star")}
   {t("help.rule_1_star")}
   {t("help.rule_0_star")}
