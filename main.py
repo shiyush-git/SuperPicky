@@ -14,6 +14,10 @@ import multiprocessing
 if sys.platform == 'darwin':
     multiprocessing.set_start_method('spawn', force=True)
 
+# V3.9.4: 防止 PyInstaller 打包后 spawn 模式创建重复进程/窗口
+# 这是 macOS PyInstaller 的标准做法
+multiprocessing.freeze_support()
+
 # 确保模块路径正确
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
