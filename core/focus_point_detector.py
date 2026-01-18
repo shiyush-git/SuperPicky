@@ -35,11 +35,12 @@ def _start_exiftool_process(exiftool_path: str = 'exiftool'):
         creationflags = subprocess.CREATE_NO_WINDOW if sys.platform.startswith('win') else 0
         
         _exiftool_process = subprocess.Popen(
-            [exiftool_path, '-stay_open', 'True', '-@', '-'],
+            [exiftool_path, '-charset', 'utf8', '-stay_open', 'True', '-@', '-'],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            encoding='utf-8',
             creationflags=creationflags,  # 隐藏窗口
             bufsize=1  # 行缓冲
         )
@@ -771,10 +772,22 @@ class FocusPointDetector:
             # V3.9.4: 在 Windows 上隐藏控制台窗口
             creationflags = subprocess.CREATE_NO_WINDOW if sys.platform.startswith('win') else 0
             
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30, creationflags=creationflags)
+            result = subprocess.run(
+                [self.exiftool_path, '-charset', 'utf8'] + cmd[1:], 
+                capture_output=True, 
+                text=True, 
+                encoding='utf-8',
+                timeout=30, 
+                creationflags=creationflags
+            )
             if result.returncode != 0:
                 return None
-            data = json.loads(result.stdout)
+            
+            stdout = result.stdout or ""
+            if not stdout.strip():
+                return None
+                
+            data = json.loads(stdout)
             return data[0] if data else None
         except Exception:
             return None

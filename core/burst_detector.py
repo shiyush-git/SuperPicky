@@ -139,6 +139,7 @@ class BurstDetector:
         # 使用 exiftool 批量读取，使用 -@ - 避免命令行长度限制
         cmd = [
             self.exiftool_path,
+            '-charset', 'utf8',
             '-json',
             '-DateTimeOriginal',
             '-SubSecTimeOriginal',
@@ -155,14 +156,17 @@ class BurstDetector:
                 input=paths_input,
                 capture_output=True,
                 text=True,
+                encoding='utf-8',
                 timeout=max(60, len(filepaths) // 10)  # 根据文件数量动态调整超时
             )
             
-            if result.returncode != 0:
-                print(f"⚠️ ExifTool 读取时间戳失败: {result.stderr}")
+            stdout = result.stdout or ""
+            if not stdout.strip():
+                if result.stderr:
+                    print(f"⚠️ ExifTool 输出为空: {result.stderr}")
                 return []
             
-            exif_data = json.loads(result.stdout)
+            exif_data = json.loads(stdout)
             return self._parse_exif_timestamps(exif_data)
             
         except subprocess.TimeoutExpired:

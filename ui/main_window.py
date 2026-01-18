@@ -438,7 +438,10 @@ class SuperPickyMainWindow(QMainWindow):
                 import subprocess
                 result = subprocess.run(
                     ['git', 'rev-parse', '--short', 'HEAD'],
-                    capture_output=True, text=True, timeout=2,
+                    capture_output=True, 
+                    text=True, 
+                    encoding='utf-8',
+                    timeout=2,
                     cwd=os.path.dirname(os.path.dirname(__file__))
                 )
                 if result.returncode == 0:

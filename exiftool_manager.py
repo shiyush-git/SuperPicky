@@ -148,19 +148,19 @@ class ExifToolManager:
             f'-XMP:Pick={pick}',
         ]
 
-        # 如果提供了锐度值，写入IPTC:City字段（补零到6位，确保文本排序正确）
-        # 格式：000.00 到 999.99，例如：004.68, 100.50
+        # V3.9.1: 改用 XMP 字段代替 IPTC，原生支持 UTF-8 中文
+        # 兼容性最好的是 XMP:City, XMP:State, XMP:Country
         if sharpness is not None:
-            sharpness_str = f'{sharpness:06.2f}'  # 6位总宽度，2位小数，前面补零
-            cmd.append(f'-IPTC:City={sharpness_str}')
+            sharpness_str = f'{sharpness:06.2f}'
+            cmd.append(f'-XMP:City={sharpness_str}')
 
-        # V3.1: NIMA美学评分 → IPTC:Province-State（省/州）
-        # 格式：00.00 到 10.00（NIMA范围0-10）
         if nima_score is not None:
-            nima_str = f'{nima_score:05.2f}'  # 5位总宽度，2位小数，前面补零
-            cmd.append(f'-IPTC:Province-State={nima_str}')
+            nima_str = f'{nima_score:05.2f}'
+            cmd.append(f'-XMP:State={nima_str}')
 
-        # V3.2: 移除 BRISQUE 字段写入
+        # 强制使用 UTF-8 编码
+        cmd.insert(1, '-charset')
+        cmd.insert(2, 'utf8')
 
         cmd.extend(['-overwrite_original', file_path])
 
@@ -173,6 +173,7 @@ class ExifToolManager:
                 capture_output=True,
                 text=True,
                 timeout=30,
+                encoding='utf-8',
                 creationflags=creationflags
             )
 
@@ -217,9 +218,9 @@ class ExifToolManager:
         stats = {'success': 0, 'failed': 0}
 
         # ExifTool批量模式：使用 -execute 分隔符为每个文件单独设置参数
-        # 格式: exiftool -TAG1=value1 file1 -overwrite_original -execute -TAG2=value2 file2 -overwrite_original -execute ...
         # V3.9.1: 改用 XMP 字段，XMP 原生支持 UTF-8 中文
-        cmd = [self.exiftool_path]
+        # V3.9.4: 强制指定编码为 utf8 解决 Windows/Mac 的中文乱码问题
+        cmd = [self.exiftool_path, '-charset', 'utf8']
 
         for item in files_metadata:
             file_path = item['file']
@@ -268,9 +269,8 @@ class ExifToolManager:
             
             # V4.0: 详细评分说明 → XMP:Description（题注）
             if caption is not None:
-                # V4.1: 将换行符替换为点号，避免 subprocess 命令解析问题
-                caption_safe = caption.replace('\n', '.')
-                cmd.append(f'-XMP:Description={caption_safe}')
+                # V4.2: 恢复换行符支持，并在 Windows 下通过 -charset utf8 保证正确写入
+                cmd.append(f'-XMP:Description={caption}')
 
             cmd.append(file_path)
             cmd.append('-overwrite_original')  # 放在每个文件之后
@@ -291,6 +291,7 @@ class ExifToolManager:
                 cmd,
                 capture_output=True,
                 text=True,
+                encoding='utf-8',
                 timeout=300,  # 5分钟超时
                 creationflags=creationflags
             )
@@ -346,7 +347,7 @@ class ExifToolManager:
                 # V3.9.4: 在 Windows 上隐藏控制台窗口
                 creationflags = subprocess.CREATE_NO_WINDOW if sys.platform.startswith('win') else 0
                 
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=30, creationflags=creationflags)
+                result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', timeout=30, creationflags=creationflags)
                 # 不需要打印成功消息，避免刷屏
             except Exception:
                 pass  # 侧车文件创建失败不影响主流程
@@ -384,13 +385,17 @@ class ExifToolManager:
                 cmd,
                 capture_output=True,
                 text=True,
+                encoding='utf-8',
                 timeout=10,
                 creationflags=creationflags
             )
 
             if result.returncode == 0:
                 import json
-                data = json.loads(result.stdout)
+                stdout = result.stdout or ""
+                if not stdout.strip():
+                    return None
+                data = json.loads(stdout)
                 return data[0] if data else None
             else:
                 return None
@@ -435,6 +440,7 @@ class ExifToolManager:
                 capture_output=True,
                 text=True,
                 timeout=30,
+                encoding='utf-8',
                 creationflags=creationflags
             )
 
@@ -498,6 +504,7 @@ class ExifToolManager:
             # V4.0: 添加 XMP 字段清除（City/State/Country/Description）
             cmd = [
                 self.exiftool_path,
+                '-charset', 'utf8',
                 '-Rating=',
                 '-XMP:Pick=',
                 '-XMP:Label=',
@@ -519,6 +526,7 @@ class ExifToolManager:
                     cmd,
                     capture_output=True,
                     text=True,
+                    encoding='utf-8',
                     timeout=120,
                     creationflags=creationflags
                 )

@@ -662,8 +662,11 @@ class PhotoProcessor:
                             # V3.9.4: 在 Windows 上隐藏控制台窗口
                             creationflags = subprocess.CREATE_NO_WINDOW if sys.platform.startswith('win') else 0
                             result = subprocess.run(
-                                [exiftool_path, '-FocusMode', '-s', '-s', '-s', raw_path],
-                                capture_output=True, text=True, timeout=5,
+                                [exiftool_path, '-charset', 'utf8', '-FocusMode', '-s', '-s', '-s', raw_path],
+                                capture_output=True, 
+                                text=True, 
+                                encoding='utf-8',
+                                timeout=5,
                                 creationflags=creationflags
                             )
                             focus_mode = result.stdout.strip().lower()
